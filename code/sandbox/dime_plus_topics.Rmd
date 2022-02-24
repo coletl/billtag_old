@@ -1,0 +1,163 @@
+---
+title: "Summarize DIME+ tags (speeches only)"
+author: 
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options:
+  chunk_output_type: inline
+params:
+    convert.parquet:   FALSE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 7, fig.height = 5)
+proj_dir <- tryCatch(rprojroot::find_rstudio_root_file(),
+                     error = function(e) rprojroot::find_root(".gitignore"))
+
+knitr::opts_knit$set(root.dir = proj_dir)
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+  sprintf("Updated: %s.", 
+          format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+  sprintf("Working directory: `%s`.", getwd()),
+  sep = "\n\n"
+)
+```
+
+
+Reads:
+
+  - data/dime_plus/text_db.csv
+
+Writes:
+
+  - FILEPATH
+
+# Setup
+
+```{r packages, warning=FALSE, message=FALSE}
+rm(list = setdiff(ls(), "params"))
+
+library(arrow)
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+set.seed(575)
+```
+
+Partitioning by `bonica.rid`. This code refers to the speaker or bill author. It may not correspond to `sponsor.rid` in cases where the speaker is referring to a bill by sponsored by another legislator. Since this first cut is just to see how well topic tagging works to identify specialists, no need to differentiate between spoken and written text for now.
+
+```{r convert.parquet, eval = params$convert.parquet}
+bill_speech_topics <- fread("data/dime_plus/text_db.csv")
+
+write_dataset(bill_speech_topics, "data/dime_plus/text_topics",
+              partitioning = "doc.type")
+```
+
+```{r}
+if(exists("bill_speech_topics")) rm(bill_speech_topics)
+```
+
+
+
+```{r}
+cands <- fread("data/dime_plus/dime_recipients_all_1979_2018.csv")
+bills <- open_dataset("data/dime_plus/bill_text/part-0.parquet")
+
+bill_count <- 
+  group_by(bills, bonica.rid) %>% 
+  summarize(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  collect()
+
+plot(hist(bill_count$count))
+```
+
+
+```{r}
+bill_samp <- 
+  filter(bills, bonica.rid %in% sample(bill_count$bonica.rid, 25)) %>% 
+  collect()
+
+topic_summary <- 
+  group_by(bill_samp, bonica.rid) %>% 
+  summarize(across(starts_with("tw."), mean))
+```
+
+
+```{r}
+topic_summary <- 
+  group_by(bills, bonica.rid) %>% 
+  select(starts_with("tw.")) %>% 
+  collect() %>% 
+  summarize(across(.fns = mean))
+
+# Sum of mean topic weight is close to but not equal to 1
+# topic_summary %>% select(starts_with("tw.")) %>% rowSums()
+```
+
+```{r}
+tsum_lng <- 
+  pivot_longer(topic_summary, cols = starts_with("tw."),
+               names_to = "topic", values_to = "weight",
+               names_pattern = "tw.(.*)")
+
+tsum_lng %>% arrange(desc(weight))
+```
+
+Latent topic dominates! Not intepretable or useful for me (or industry interests). Remove the latent topic and rescale weights so they sum to 1.
+
+```{r}
+tsum_lng %>% filter(topic != "latent1") %>% 
+  group_by(bonica.rid) %>% 
+  mutate(weight = weight / sum(weight)) %>% 
+  arrange(desc(weight))
+```
+
+Table of top topics.
+```{r}
+tsum_lng %>% 
+  filter(topic != "latent1") %>%
+  group_by(bonica.rid) %>% 
+  mutate(weight = weight / sum(weight)) %>% 
+  group_by(bonica.rid) %>% 
+  arrange(desc(weight))
+```
+
+
+Bill text disagrees with topic weights. The `tw.veterans.affairs` for doc 2 is very high (0.45), but is primarily about defense and foreign policy (0.068).
+```{r}
+filter(bills, bonica.rid == "cand861") %>% collect() %>% 
+  pull(text)
+
+filter(bills, bonica.rid == "cand861") %>% collect() %>% 
+  select(starts_with("tw."))
+```
+
+
+```{r}
+topic_summary %>% filter(bonica.rid == "cand861")
+```
+
+
+```{r}
+tsum_lng %>% filter(topic != "latent1") %>% 
+  ggplot() + 
+  aes(x = weight, color = topic, fill = topic) +
+  geom_density(alpha = 0.2)
+```
+
+
+
+

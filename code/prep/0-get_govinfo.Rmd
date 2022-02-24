@@ -1,0 +1,158 @@
+---
+title: "Quick and dirty download of gov.info bulk bills data"
+author: 
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options:
+  chunk_output_type: inline
+params: 
+  download: FALSE
+  unzip: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 7, fig.height = 5)
+proj_dir <- tryCatch(rprojroot::find_rstudio_root_file(),
+                     error = function(e) rprojroot::find_root(".gitignore"))
+
+knitr::opts_knit$set(root.dir = proj_dir)
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+  sprintf("Updated: %s.", 
+          format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+  sprintf("Working directory: `%s`.", getwd()),
+  sep = "\n\n"
+)
+```
+
+
+Reads:
+
+  - FILEPATH
+
+Writes:
+
+  - Unzips to /scratch/billtag/data/legislation/govinfo
+
+# Setup
+
+```{r packages, warning=FALSE, message=FALSE}
+rm(list = setdiff(ls(), "params"))
+
+library(arrow)
+library(qs)
+library(data.table)
+library(dplyr)
+library(stringr)
+library(purrr)
+library(xml2)
+
+scratch_dir <- "/scratch/users/coletl/billtag/data/legislation/govinfo"
+
+# Overwrite option when unzipping
+overwrite <- FALSE
+```
+
+# Construct download URLS
+
+```{r}
+bulk_stems <- 
+  expand.grid(congress = 113:117,
+              session = 1:2,
+              bill_type = c("hconres", "hjres", "hr", "hres", 
+                            "s", "sconres", "sjres", "sres")) %>% 
+  as.data.table()
+
+bulk_stems[ , root := "https://www.govinfo.gov/bulkdata/BILLS"]
+
+bulk_stems[ , zip_url := 
+             str_glue("{root}/{congress}/{session}/{bill_type}/BILLS-{congress}-{session}-{bill_type}.zip",
+                      .envir = bulk_stems)
+           ][ ,
+              file_name := str_glue("{congress}-{session}-{bill_type}.zip", 
+                                    .envir = bulk_stems)]
+```
+
+Construct zip file paths to write to.
+```{r}
+bulk_stems[ , dir := str_glue("data/legislation/govinfo/{congress}",
+                              .envir = bulk_stems)
+            ][ , path := file.path(dir, file_name)]
+
+```
+
+# Download
+```{r download, eval = params$download}
+bulk_stems[ , map(unique(dir), dir.create)] %>% 
+  invisible()
+
+bulk_stems[ , 
+            map2(zip_url, path, 
+                 ~ download.file(url = .x, destfile = .y))
+            ]
+```
+
+Unzip.
+```{r unzip, eval = params$unzip}
+system.time(
+  map(bulk_stems$path, 
+      ~ unzip(.x, exdir = scratch_dir, overwrite = overwrite) %>% 
+        # suppress warnings about not overwriting file
+        suppressWarnings()
+      )
+  )
+
+length(list.files(scratch_dir))
+```
+
+# Parse XML
+```{r}
+xml_files <-
+  list.files(path = scratch_dir, pattern = ".xml",
+             recursive = TRUE, full = TRUE)
+
+lxml <- list()
+
+system.time(
+  for (file in xml_files) {
+    lxml[file] <- 
+      tryCatch(read_xml(file) %>% as_list(),
+               error = function(e) sprintf("ERROR: %s", e$message))
+  }
+)
+```
+
+```{r}
+qsave(lxml, "data/legislation/govinfo/bills_xml.qs")
+```
+
+```{r}
+err_lgl <- map_lgl(lxml, ~ class(.x) == "character")
+sum(err_lgl); mean(err_lgl)
+```
+
+```{r}
+system.time(lxml <- map(xml_files, ~ read_xml(.x) %>% as_list))
+```
+
+
+
+```{r}
+system.time(lxml2 <- parallel::mclapply(xml_files, 
+                                        function(.x) read_xml(.x) %>% as_list))
+```
+
+```{r}
+
+```
+
+
