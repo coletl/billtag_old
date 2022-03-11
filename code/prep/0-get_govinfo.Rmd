@@ -14,7 +14,7 @@ editor_options:
   chunk_output_type: inline
 params: 
   download: FALSE
-  unzip: TRUE
+  unzip: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -55,6 +55,8 @@ library(dplyr)
 library(stringr)
 library(purrr)
 library(xml2)
+
+source("code/functions.R")
 
 scratch_dir <- "/scratch/users/coletl/billtag/data/legislation/govinfo"
 
@@ -114,8 +116,8 @@ system.time(
 length(list.files(scratch_dir))
 ```
 
-# Parse XML
-```{r}
+# Convert to nested list
+```{r, eval = params$download}
 xml_files <-
   list.files(path = scratch_dir, pattern = ".xml",
              recursive = TRUE, full = TRUE)
@@ -129,30 +131,49 @@ system.time(
                error = function(e) sprintf("ERROR: %s", e$message))
   }
 )
-```
 
-```{r}
+
 qsave(lxml, "data/legislation/govinfo/bills_xml.qs")
 ```
 
+
+```{r read_xml_list, eval = !params$download}
+lxml <- qread("data/legislation/govinfo/bills_xml.qs")
+```
+
+Good error rate.
 ```{r}
 err_lgl <- map_lgl(lxml, ~ class(.x) == "character")
 sum(err_lgl); mean(err_lgl)
+
+stopifnot(sum(err_lgl) < 100)
+stopifnot(mean(err_lgl) < 1e-4)
+
+lxml <- lxml[ - which(err_lgl) ]
 ```
+
+# Get text from XML list
+
+```{r get_text_xml}
+bill_tags <- 
+    str_extract(names(lxml), "(?<=BILLS-)[0-9a-z]+(?=\\.xml)") %>%
+    gsub("[a-z]+\\d*$", "", .)
+
+
+# Convert format from 113hconres100 to hr2596-115
+bill_ids <-
+    gsub("(\\d+)([a-z]+)(\\d+)", "\\2\\3-\\1", bill_tags)
+
+bill_text <- 
+    data.table(bill_id = bill_ids,
+               bill_text = vapply(lxml, get_text_govinfo, 
+                                  FUN.VALUE = character(1)))
+
+bill_text[ , bill_text := gsub("\n\t\t\t", "", bill_text, fixed = TRUE)]
+```
+
 
 ```{r}
-system.time(lxml <- map(xml_files, ~ read_xml(.x) %>% as_list))
+write_parquet(bill_text, "data/legislation/govinfo/bill_text.parquet")
 ```
-
-
-
-```{r}
-system.time(lxml2 <- parallel::mclapply(xml_files, 
-                                        function(.x) read_xml(.x) %>% as_list))
-```
-
-```{r}
-
-```
-
 

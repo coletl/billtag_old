@@ -1,4 +1,26 @@
-# Functions to prepare ProPublica data ----
+library(docstring)
+
+# Functions to prepare govinfo data ----
+
+get_text_govinfo <- 
+    function(bill){
+        #' Extract bill text from the govinfo bills.
+        
+        #' @param bill a bill's data in list form, the output of xml2::read_xml() %>% as_list()
+        
+        require(dplyr)
+        require(stringr)
+        
+        body_ind <- grep("body", names(bill), value = TRUE)
+        bill_body <- unlist(bill[body_ind])
+        
+        text_ind  <- grep("text", names(bill_body), value = TRUE)
+        bill_text <- paste(bill_body[text_ind], collapse = " ")
+        
+        return(bill_text)
+        
+    }
+
 # This creates an object of class `bill` from PP's
 # list (read from json) data on all Congressional bills
 
@@ -197,3 +219,4 @@ AgendasProjectTopicCodes <-
                     23, "Culture"
                     )
     )
+
