@@ -1,0 +1,473 @@
+---
+title: "Prepare bill labels from CRS and CBP"
+author: 
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options:
+  chunk_output_type: console
+params: 
+  from_raw: FALSE
+  dev:   FALSE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 7, fig.height = 5)
+proj_dir <- tryCatch(rprojroot::find_rstudio_root_file(),
+                     error = function(e) rprojroot::find_root(".gitignore"))
+
+knitr::opts_knit$set(root.dir = proj_dir)
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+    sprintf("Updated: %s.", 
+            format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+    sprintf("Working directory: `%s`.", getwd()),
+    sep = "\n\n"
+)
+```
+
+This document organizes the ProPublica data on congressional legislation. 
+
+There are dev packages like `rsunlight` to query the ProPublica and OpenStates APIs. They aren't reliable and don't permit bulk downloads. It's easiest to bypass query limits and click-download from links.
+
+Source: https://www.propublica.org/datastore/dataset/congressional-data-bulk-legislation-bills
+
+Data documentation: https://github-wiki-see.page/m/unitedstates/congress/wiki/Bills
+
+
+Reads:
+
+  - ~Adams mapping from CRS codes to topics: data/topic_labels/label_codings.csv~
+   
+    - Adam didn't include the 24 more general topics
+   
+  - Congressional Bills Project codings: data/topic_labels/bills93-114.csv
+  - Legislation: zip files in data/legislation/propublica
+  - Legislator ID codes: data/congress_ids.csv
+  - Bill text: data/legislation/govinfo/bill_text.parquet
+
+Writes:
+
+- Bill metadata + topics: data/legislation/propublica/bills_list.qs
+- Bill-legislator sponsorship with FEC IDs: data/legislation/propublica/sponsorship.qs
+
+# Setup
+
+```{r packages, warning=FALSE, message=FALSE}
+tictoc::tic()
+rm(list = setdiff(ls(), "params"))
+
+library(fst)
+library(qs)
+library(arrow)
+library(stringr)
+library(data.table)
+library(jsonify)
+library(jsonlite)
+library(purrr)
+library(furrr)
+library(coler)
+library(dplyr)
+library(tidyr)
+library(tidylog)
+
+source("code/functions.R")
+
+if(!exists("params")) params <- list(dev = interactive())
+if(params$dev) plan(multisession) else plan(multicore)
+```
+
+```{r}
+cbp_bills <- fread("data/topic_labels/bills93-114.csv")
+
+# Clicked links here from 1999-present:
+# https://www.propublica.org/datastore/dataset/congressional-data-bulk-legislation-bills
+# Then moved them to propublica subdir
+pp_dir <- "data/legislation/propublica"
+```
+
+# Organize data
+
+Unzip bulk data files.
+```{r unzip, eval = params$from_raw}
+# Find files not marked as unzipped
+zips <- list.files(pp_dir, patt = "[0-9]\\.zip", full = TRUE, recursive = FALSE)
+names(zips) <- gsub("\\.zip", "", zips)
+
+
+map(names(zips), dir.create)
+
+future_map(names(zips),
+           function(nm) { 
+               
+               unzip(zips[[nm]], exdir = nm); 
+               
+               # Mark as unzipped
+               zips[[nm]] %>% 
+               { file.rename(., gsub(".zip", "unz.zip", x = ., fixed = TRUE)) }
+           }
+)
+```
+
+Read in the JSON files and store as R lists.
+```{r qsave_jsons, eval = params$from_raw}
+sessions <- 106:116
+pp_read_dirs <- file.path(pp_dir, sessions)
+
+pp_paths <-
+    future_map(pp_read_dirs, list.files, 
+               recursive = TRUE, full.names = TRUE,
+               pattern = ".json") %>% 
+    unlist()
+
+qsave(pp_paths, "data/legislation/propublica/pp_paths.qs")
+pp_paths <- qread("data/legislation/propublica/pp_paths.qs")
+
+bills_jslist <- 
+    future_map(pp_paths, from_json, simplify = TRUE, fill_na = TRUE)
+qsave(bills_jslist, "data/legislation/propublica/pp_bills_jslist.qs")
+```
+
+Standardize bills and amendments data into an R object.
+
+```{r json_to_bill, eval = params$from_raw}
+bills_jslist <- 
+    qread("data/legislation/propublica/pp_bills_jslist.qs")
+
+bill_ids  <- map(bills_jslist, "bill_id")
+
+system.time(bills <- map(bills_jslist, jslist_to_bill))
+#     user   system  elapsed 
+# 1145.487   25.995 1202.459 
+names(bills) <- map(bills, "bill_id")
+
+qsave(bills, "data/legislation/propublica/bills_list.qs")
+```
+
+
+# Link legislation to topics {.tabset}
+
+```{r}
+bills <- qread("data/legislation/propublica/bills_list.qs")
+topics_list <- map(bills, "topics")
+```
+
+## Coarsened CRS lookup
+
+I coded the top 250 CRS-assigned tags into broader topic labels. More details in localism project. Next I create a table linking to broader topics. Could expand if there are too many unlabeled bills after this grouping.
+```{r}
+subj_vec <- unlist(map(topics_list, "subjects"))
+
+subj_tags <- 
+    list(
+    state_local = c("State and local government operations",
+                    "Intergovernmental relations", 
+                    "Federal-state relations", "State laws",
+                    "State and local finance", "Federal preemption"),
+    dc = "District of Columbia",
+    california = "California",
+    alaska = "Alaska",
+    texas = "Texas",
+    virginia = "Virginia",
+    health  = c("Health", "Medicare", "Health care coverage and access",
+                "Child health", "Health care costs and insurance",
+                "Health programs administration and funding",
+                "Health personnel", "Health promotion and preventive care",
+                "Medicaid", "Emergency medical services and trauma care",
+                "Health information and medical records",
+                "Mental health", "Infectious and parasitic diseases",
+                "Health facilities and institutions",
+                "Cardiovascular and respiratory health",
+                "Women's health", "Medical tests and diagnostic methods",
+                "Disability and paralysis", 
+                "Drug, alcohol, tobacco use", "Drug abuse",
+                "Health insurance", "Hospital care", "Prescription drugs",
+                "Access to health care", "Health care quality"),
+    housing = c("Housing and community development"),
+    human_serv = c("Social welfare", "Families", "Emergency management",
+                   "Housing and community development", "Medicare",
+                   "Department of Health and Human Services",
+                   "Health programs administration and funding",
+                   "Veterans' medical care",
+                   "Health promotion and preventive care", "Medicaid",
+                   "Disabled", "Water quality",
+                   "Social work, volunteer service, charitable organizations",
+                   "Immigration status and procedures",
+                   "Veterans' education, employment, rehabilitation",
+                   "Crime victims", "Child safety and welfare",
+                   "Poverty and welfare assistance",
+                   "Disaster relief and insurance",
+                   "Department of Veterans Affairs",
+                   "Indian social and development programs"),
+    civil_rights = c("Civil rights and liberties, minority issues",
+                     "Minorities", "Human rights", "Women",
+                     "Racial and ethnic relations",
+                     "Education of the disadvantaged"),
+    foreign_natsec = c("Armed forces and national security",
+                       "International affairs",
+                       "Foreign trade and international finance",
+                       "Terrorism", "Emergency management",
+                       "Immigration", "Tariff", "Tariffs",
+                       "Department of Homeland Security",
+                       "Latin America", 
+                       "Asia", "Europe",
+                       "Diplomacy, foreign officials, Americans abroad",
+                       "International organizations and cooperation",
+                       "Foreign aid and international relief",
+                       "Middle East",
+                       "Immigration status and procedures",
+                       "Department of Defense",
+                       "Conflicts and wars", "Federal-Indian relations",
+                       "Caribbean area", "Middle East and North Africa",
+                       "United Nations", "Visas and passports",
+                       "Trade restrictions", "Iraq",
+                       "Border security and unlawful immigration",
+                       "Military operations and strategy",
+                       "Intelligence activities, surveillance, classified information", "Military medicine"),
+    governance = c("Government operations and politics", "Congress", "Law",
+                   "Government paperwork", 
+                   "Executive agency funding and structure",
+                   "Administrative remedies", "Executive reorganization",
+                   "Elections, voting, political campaign regulation",
+                   "Presidents and presidential powers, Vice Presidents"),
+    legislative = c("Congress",
+                    "House of Representatives",
+                    "Legislative rules and procedure",
+                    "Members of Congress",
+                    "Legislation", "House rules and procedure",
+                    "Senate"
+                    ),
+    funding = c("Government trust funds", "Appropriations",
+                "Public contracts and procurement", "Authorization",
+                "Grants-in-aid"),
+    law = c("Law", "Administrative remedies", 
+            "Civil actions and liability", 
+            "Criminal investigation, prosecution, interrogation",
+            "Right of privacy", "Actions and defenses",
+            "Department of Justice", "Government liability"),
+    oversight = c("Congressional oversight", 
+                  "Government information and archives",
+                  "Congressional reporting requirements",
+                  "Government studies and investigations",
+                  "Executive agency funding and structure",
+                  "Administrative procedure", 
+                  "Governmental investigations",
+                  "Advisory bodies", "Performance measurement",
+                  "Federal advisory bodies",
+                  "Government ethics and transparency, public corruption",
+                  "Congressional investigations"),
+    regulation = c("Administrative law and regulatory procedures",
+                   "Administrative procedure", 
+                   "Licensing and registrations", "Licenses",
+                   "Standards", "Nonprofit organizations",
+                   "Elections, voting, political campaign regulation",
+                   "Intellectual property", "Firearms and explosives",
+                   "Accounting and auditing", 
+                   "Banking and financial institutions regulation"),
+    crime = c("Crime and law enforcement", 
+              "Criminal investigation, prosecution, interrogation",
+              "Fines (Penalties)", "Law enforcement officers",
+              "Fraud offenses and financial crimes",
+              "Law enforcement administration and funding",
+              "Criminal justice information and records",
+              "Crime victims", "Detention of persons",
+              "Crime prevention", "Department of Justice",
+              "Drug abuse", "Drug trafficking and controlled substances",
+              "Criminal procedure and sentencing", "Violent crime",
+              "Fraud", "Sex offenses"),
+    educ   = c("Education", "Higher education", 
+               "Elementary and secondary education",
+               "Education programs funding", 
+               "Student aid and college costs", "Federal aid to education",
+               "Teaching, teachers, curricula", "Medical education",
+               "Secondary education", "Education of the disadvantaged",
+               "Health education"),
+    transport = c("Transportation and public works",
+                  "Infrastructure", "Transportation safety and security",
+                  "Aviation and airports", 
+                  "Transportation programs funding",
+                  "Roads and highways", "Motor vehicles",
+                  "Department of Transportation"),
+    business = c("Commerce", "Small business", 
+                 "Licensing and registrations",
+                 "Business records", "Licenses",
+                 "User charges and fees", "Consumer affairs",
+                 "Tax deductions", "Business investment and capital",
+                 "Public-private cooperation", "Consumer education",
+                 "Tax exclusion", "Corporate finance and management",
+                 "Consumer credit"),
+    labor = c("Labor and employment", "Employment and training programs",
+              "Wages and earnings", "Employee benefits and pensions",
+              "Unemployment", 
+              "Employment discrimination and employee rights",
+              "Employee training"),
+    agriculture = c("Agriculture and food"),
+    finance     = c("Economics and public finance", 
+                    "Finance and financial sector",
+                    "Government lending and loan guarantees",
+                    "Securities", "Department of the Treasury",
+                    "Financial services and investments",
+                    "Housing finance and home ownership",
+                    "Inflation and prices"),
+    tax = c("Taxation", "Income tax", "Tariff", "Tariffs",
+            "Income tax credits", "Tax credits",
+            "Tax administration and collection, taxpayers",
+            "Income tax deductions", "Tax deductions", 
+            "Income tax exclusion", "Budget deficits and national debt",
+            "Tax exclusion", "Sales and excise taxes"),
+    environment  = c("Public lands and natural resources",
+                     "Environmental protection", "Land transfers",
+                     "Water resources development",
+                     "Marine and coastal resources, fisheries",
+                     "Animals", "Water quality", "Oil and gas",
+                     "Environmental assessment, monitoring, research",
+                     "Alternative and renewable resources",
+                     "Land use and conservation", 
+                     "Hazardous wastes and toxic substances",
+                     "Air quality", "Energy efficiency and conservation",
+                     "Climate change and greenhouse gases",
+                     "Water use and supply", "Department of the Interior",
+                     "Wildlife conservation and habitat protection",
+                     "Parks, recreation areas, trails",
+                     "Outdoor recreation"),
+    rural_urban = c("Rural conditions and development"),
+    energy = c("Energy", "Oil and gas", 
+               "Electric power generation and transmission"),
+    science_tech = c("Science, technology, communications",
+                     "Medical research", "Research and development",
+                     "Research administration and funding",
+                     "Internet and video services", "Data banks",
+                     "Health technology, devices, supplies", "Internet",
+                     "Computers and information technology",
+                     "Computer security and identity theft",
+                     "Electronic government information",
+                     "Telephone and wireless communication"),
+    fed_employ = c("Government employee pay, benefits, personnel management", 
+                   "Military personnel and dependents",
+                   "Federal employees", "Federal officials",
+                   "Postal service", "Government contractors"),
+    symbolic = c("Congressional tributes", "Commemorations",
+                 "Commemorative events and holidays", "Names"),
+    publicity = c("Government publicity"),
+    society = c("Sports and recreation", "Arts, culture, religion", 
+                "History"),
+    religion = c("Religion")
+    ) %>% stack() %>% 
+  rename(subject = "values", tag = "ind")
+```
+
+
+```{r}
+setDT(subj_tags, key = "subject")
+subj_tags[ , tag := as.character(tag)]
+```
+
+## Label with broader topics
+Group `bill_subjects` column into broader topic tags. Create columns flagging the presence of a topic in each bill. Using the `crs_topics` data.table isn't necessary since we'll need to output a JSON file of topics.
+```{r}
+# Create data.table of topic columns to fill
+crs_topics <- data.table(bill_id = unique(names(bills)))
+
+uniq_topics <- unique(subj_tags$tag)
+for(topic in uniq_topics) set(crs_topics, j = topic, value = 0)
+
+setkey(crs_topics, bill_id)
+```
+
+
+```{r subjects_to_topics}
+crs_topic_list <- 
+    map(topics_list,
+        function(bill) {
+            # Coarsen CRS subjects to topics
+            cn_tags <- subj_tags[bill$subjects, na.omit(unique(tag))]
+            
+            # Locate bill in topics DF by ID and flag the topic
+            crs_topics[bill$bill_id, 
+                       (cn_tags) := map(.SD, ~ .x + 1L),
+                       .SDcols = cn_tags
+            ]
+            
+            # Return character vector of coarsened topics
+            return(cn_tags)
+        }
+    )
+```
+
+
+Most bills concern a few broad topics!
+```{r crs_report}
+crs_topics[ , -1] %>% rowSums() %>% summary()
+```
+
+
+## CBP topics (1973--2017, hand coded)
+
+Recode the Congressional Bills Project data to include major topic tags. These were hand-coded for the single most important topic. Codebook is in Excel format and does not report why there are legislator-specific variables for a bill-level data set.
+
+```{r}
+cbp_topics <- 
+  select(cbp_bills,
+         bill_id = BillID, senate = Chamber, congress = Cong,
+         num_cospons = Cosponsr, major = Major, minor = Minor,
+         private = Private,
+         pass_house = PassH, pass_senate = PassS, veto = Veto,
+         # passed and signed into law
+         ps_law = PLaw, party_majority = Majority) %>% 
+  
+  left_join(AgendasProjectTopicCodes, 
+            by = c(major = "code_major"))
+
+table(cbp_topics$topic_major, useNA = "always") %>% 
+  sort()
+```
+
+```{r}
+cbp_topics[ , 
+            bill_id_pp := 
+              gsub(",3})-([A-Z]*)-(\\d*)", 
+                   "\\2\\3-\\1",
+                   bill_id) %>% tolower()
+            ]
+
+# check
+# cbp_topics[sample(.N, 20), .(bill_id, bill_id_pp)]
+# sample(bills %>% names(), 20)
+
+cbp_topic_list <- as.list(cbp_topics$topic_major)
+names(cbp_topic_list) <- cbp_topics$bill_id_pp
+```
+
+<!-- ## Build bill-topic data frame -->
+
+<!-- Convert to a data.frame of bills with CBP topics. Dropping sponsorship data for now. -->
+<!-- ```{r} -->
+<!-- bill_topic_text <-  -->
+<!--   map(bills, -->
+<!--       ~ data.table(bill_id   = .x$topics$bill_id, -->
+<!--                    topic_cbp = .x$topics$cbp_topic, -->
+<!--                    topic_crs = .x$topics$primary_topic, -->
+<!--                    summary   = .x$topics$summary) -->
+<!--       ) %>%  -->
+<!--   rbindlist() -->
+<!-- ``` -->
+
+# Export
+```{r}
+write_json(crs_topic_list, "data/topic_labels/crs_labels.json")
+write_json(cbp_topic_list, "data/topic_labels/cbp_labels.json")
+```
+
+
+```{r}
+tictoc::toc()
+```
+
