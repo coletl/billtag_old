@@ -176,5 +176,9 @@ bill_text <- data.table:::unique.data.table(bill_text)
 # Export
 ```{r}
 write_parquet(bill_text, "data/legislation/govinfo/bill_text.parquet")
+
+set.seed(575)
+bill_samp <- dplyr::sample_n(bill_text, 100)
+write_parquet(bill_samp, "data/legislation/govinfo/bill_text_samp.parquet")
 ```
 
