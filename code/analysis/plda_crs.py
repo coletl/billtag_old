@@ -1,49 +1,5 @@
----
-title: "Fit a PLDA model to bill text with CRS tags"
-author: 
-  - ""
-date: ""
-output:
-  html_document:
-    df_print: paged
-    toc: true
-    toc_depth: 2
-    toc_float: true
-    code_folding: show
-    theme: paper
-    highlight: tango
-editor_options:
-  chunk_output_type: inline
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, fig.width = 7, fig.height = 5)
-proj_dir <- tryCatch(rprojroot::find_rstudio_root_file(),
-                     error = function(e) rprojroot::find_root(".gitignore"))
-
-knitr::opts_knit$set(root.dir = proj_dir)
-```
-
-```{r about, echo=FALSE, results = "asis"}
-cat(
-    sprintf("Updated: %s.", 
-            format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
-    sprintf("Working directory: `%s`.", getwd()),
-    sep = "\n\n"
-)
-```
-
-# Setup
-
-```{r}
-# Sys.setenv(BLIS_REALLY_COMPILE=1)
-# renv::restore()
-# reticulate::py_install(c("Cython", "numpy", "torch", "pyarrow", "tomotopy", "nltk", "pandas", "spacy", "spacy-transformers"))
-```
-
-```{python}
-import json 
-import copy 
+import json
+import copy
 import random
 import numpy as np
 import pyarrow
@@ -53,32 +9,29 @@ import tomotopy as tp
 
 # Used for lemmatization
 import spacy
+## Use this one
+### DOWNLOAD
+!python -m spacy download 'en_core_web_sm'
+## Not this one
 # !python -m spacy download 'en_core_web_trf'
-# !python -m spacy download 'en_core_web_sm'
 
 # Used for stopwords
 import nltk
+### DOWNLOAD
 # nltk.download("stopwords")
 
 random.seed(575)
-```
 
-
-```{python}
 crs_labels = json.load(open('data/topic_labels/crs_labels.json'))
 
 bill_fn = 'data/legislation/govinfo/bill_text.parquet'
 bills   = pyarrow.Table.to_pandas(pq.read_pandas(bill_fn))
-```
 
-Use a 50/50 train-test split, but move any unlabeled bills to the test set.
-
-```{python}
 n_train   = round(len(bills) / 2)
 # index of 50/50 split
 split_index = set(random.sample(range(1, len(bills)), n_train))
 # index of unlabeled bills
-unlabel_index = np.where([billid not in crs_labels.keys() 
+unlabel_index = np.where([billid not in crs_labels.keys()
                           for billid in bills['id']])[0].tolist()
 
 # remove unlabeled bills from training set
@@ -89,23 +42,17 @@ bills_test = bills.drop(train_index)
 len(bills_train); len(bills_test)
 
 assert(len(bills_train) + len(bills_test) == len(bills))
-```
 
-How many bills moved from training split to testing due to missing label?
-```{python}
 len(split_index) - len(train_index)
-```
 
-
-```{python, corpus_params}
 def spacy_lemma_tokens(raw, user_data, en = "en_core_web_sm"):
     # Load English model, keeping only tagger component needed for lemmatizing
     spacy_en = spacy.load('en_core_web_sm', disable = ['parser', 'ner'])
     doc = spacy_en(raw)
     # Lemmatize and paste doc back together
     lemmas = [token.lemma_ for token in doc]
-    out = " ".join(lemmas)
-    return(out)
+    # out = " ".join(lemmas)
+    return(lemmas)
 
 
 stopwords = set(nltk.corpus.stopwords.words('english'))
@@ -114,31 +61,22 @@ bill_corpus = tp.utils.Corpus(tokenizer = tp.utils.SimpleTokenizer(stemmer = spa
                               stopwords = lambda x: len(x) <= 2 or x in stopwords)
 
 test_corpus = copy.copy(bill_corpus)
-```
 
-
-```{python, build_corpus_train}
-bill_train_list = [(text, crs_labels[billid], {'labels':  crs_labels[billid]}) 
+bill_train_list = [(text, crs_labels[billid], {'labels':  crs_labels[billid]})
                    for text, billid in zip(bills_train['text'], bills_train['id'])
                    ]
- 
+
 bill_corpus.process(bill_train_list)
 bill_corpus.save("data/legislation/corpus_train.pickle")
-```
 
-
-```{python, build_corpus_test}
-bill_test_list = [(text, crs_labels[billid], {'labels':  crs_labels[billid]}) 
+bill_test_list = [(text, crs_labels[billid], {'labels':  crs_labels[billid]})
                    for text, billid in zip(bills_test['text'], bills_test['id'])
                    ]
- 
+
 test_corpus.process(bill_test_list)
 test_corpus.save("data/legislation/corpus_test.pickle")
-```
 
-
-```{python}
-mod_plda = tp.PLDAModel(tw = tp.TermWeight.IDF, corpus = bill_corpus, 
+mod_plda = tp.PLDAModel(tw = tp.TermWeight.IDF, corpus = bill_corpus,
                         min_cf = 0, min_df = 100,
                         latent_topics = 1, topics_per_label = 1,
                         # hyperparameters for dirichlet
@@ -147,12 +85,8 @@ mod_plda = tp.PLDAModel(tw = tp.TermWeight.IDF, corpus = bill_corpus,
 
 mod_plda.train(iter = 100)
 # mod_plda.train(iter = 5000)
-```
 
-
-```{python}
 mod_plda.summary()
 mod_plda.topic_label_dict
 mod_plda.get_topic_words(topic_id=0)
-```
 
