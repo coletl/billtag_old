@@ -169,7 +169,8 @@ bill_text <-
                text = vapply(lxml, get_text_govinfo, 
                                   FUN.VALUE = character(1)))
 
-bill_text[ , text := gsub("\n\t\t\t", "", bill_text, fixed = TRUE)]
+bill_text[ , text := gsub("\n\t\t\t", "", tolower(text), fixed = TRUE)]
+bill_text <- data.table:::unique.data.table(bill_text)
 ```
 
 # Export
