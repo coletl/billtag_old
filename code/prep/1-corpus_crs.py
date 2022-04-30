@@ -26,18 +26,26 @@ import nltk
 # nltk.download("stopwords")
 
 # Load English model, keeping only tagger component needed for lemmatizing
-spacy_en = spacy.load('en_core_web_sm', disable = ['parser', 'ner'])
+spacy_en_sm = spacy.load('en_core_web_sm', disable = ['parser', 'ner'])
 
-def spacy_lemmatize_word(raw, user_data = None, nlp = spacy_en):
+def spacy_lemmatize_doc(doc, nlp, stopwords):
     """
-    Run spacy's lemmatizer and return the first token's lemma.
-    Intended only as the stemmer for tomotopy.utils.SimpleTokenizer().
+    Run spacy's lemmatizer on a document and keep only alpha-numeric terms of
+    length 2 or greater AND not in stopwords.
     """
-    import regex as re
-    assert re.search(" ", raw) == None
-    word = nlp(raw)
-    out = word[0].lemma_
-    return(out)
+    import numpy as np
+    
+    tokens = nlp(doc)
+    lemmas = [token.lemma_ for token in tokens]
+    
+    alnum_ind = np.where([lemma.isalnum() for lemma in lemmas])[0].tolist()
+    alnum_lemmas = [lemmas[i] for i in alnum_ind]
+    
+    not_stop_ind = np.where([len(lemma) > 2 and lemma not in stopwords for lemma in alnum_lemmas])[0].tolist()
+    final_tokens = [alnum_lemmas[i] for i in not_stop_ind]
+    
+    out = " ".join(final_tokens)
+    return out
 
 
 random.seed(575)
@@ -74,15 +82,27 @@ len(split_index) - len(train_index)
 Build corpuses
 """
 
-stopwords = set(nltk.corpus.stopwords.words('english'))
+stopwords = set(nltk.corpus.stopwords.words('english')).union(
+            set(["the", "section", "page"])
+            )
+
+# Spot checks...
+spacy_lemmatize_doc(bills_train['text'].to_list()[12],
+                    nlp = spacy_en_sm, stopwords = stopwords)
+
+spacy_lemmatize_doc(bills_train['text'].to_list()[682],
+                    nlp = spacy_en_sm, stopwords = stopwords)
 
 # Training corpus
-bill_corpus = tp.utils.Corpus(tokenizer = tp.utils.SimpleTokenizer(stemmer = spacy_lemmatize_word),
+bill_corpus = tp.utils.Corpus(tokenizer = None,
                               stopwords = lambda x: len(x) <= 2 or x in stopwords)
 
 test_corpus = copy.copy(bill_corpus)
 
-bill_train_list = [(text, crs_labels[billid], {'labels':  crs_labels[billid]})
+
+bill_train_list = [(spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords), 
+                    crs_labels[billid], 
+                    {'labels':  crs_labels[billid]})
                    for text, billid in zip(bills_train['text'], bills_train['id'])
                    ]
 
@@ -90,7 +110,9 @@ bill_corpus.process(bill_train_list)
 bill_corpus.save("data/legislation/corpus_train.pickle")
 
 # Test corpus
-bill_test_list = [(text, crs_labels[billid], {'labels':  crs_labels[billid]})
+bill_test_list = [(spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords),
+                    crs_labels[billid], 
+                    {'labels':  crs_labels[billid]})
                   for text, billid in zip(bills_test['text'], bills_test['id'])
                   ]
 
