@@ -2,7 +2,6 @@
 Construct training- and test-set corpuses
 """
 
-
 import json
 import copy
 import random
@@ -34,6 +33,9 @@ def spacy_lemmatize_doc(doc, nlp, stopwords):
     length 2 or greater AND not in stopwords.
     """
     import numpy as np
+    
+    # not using parser or NER, so should be safe to increase character limit
+    nlp.max_length = 1000000000
     
     tokens = nlp(doc)
     lemmas = [token.lemma_ for token in tokens]
