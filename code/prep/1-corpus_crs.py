@@ -1,6 +1,11 @@
 """
-Construct training- and test-set corpuses
+Construct training- and test-set corpuses with CRS labels
 """
+
+dev = False
+
+import faulthandler
+faulthandler.enable()
 
 import json
 import copy
@@ -44,9 +49,8 @@ def spacy_lemmatize_doc(doc, nlp, stopwords):
     alnum_lemmas = [lemmas[i] for i in alnum_ind]
     
     not_stop_ind = np.where([len(lemma) > 2 and lemma not in stopwords for lemma in alnum_lemmas])[0].tolist()
-    final_tokens = [alnum_lemmas[i] for i in not_stop_ind]
+    out = [alnum_lemmas[i] for i in not_stop_ind]
     
-    out = " ".join(final_tokens)
     return out
 
 
@@ -58,7 +62,10 @@ Split data into training, test sets
 
 crs_labels = json.load(open('data/topic_labels/crs_labels.json'))
 
-bill_fn = 'data/legislation/govinfo/bill_text.parquet'
+
+if dev: bill_fn = 'data/legislation/govinfo/bill_text_samp.parquet' 
+else:   bill_fn = 'data/legislation/govinfo/bill_text.parquet'
+
 bills   = pyarrow.Table.to_pandas(pq.read_pandas(bill_fn))
 
 n_train   = round(len(bills) / 2)
@@ -84,6 +91,8 @@ len(split_index) - len(train_index)
 Build corpuses
 """
 
+assert len(set(bills_train["id"]).intersection(bills_test["id"])) == 0
+
 stopwords = set(nltk.corpus.stopwords.words('english')).union(
             set(["the", "section", "page"])
             )
@@ -94,29 +103,42 @@ spacy_lemmatize_doc(bills_train['text'].to_list()[12],
 
 spacy_lemmatize_doc(bills_train['text'].to_list()[682],
                     nlp = spacy_en_sm, stopwords = stopwords)
+                    
+# Construct n-grams
+
+
 
 # Training corpus
-bill_corpus = tp.utils.Corpus(tokenizer = None,
-                              stopwords = lambda x: len(x) <= 2 or x in stopwords)
+corpus_train = tp.utils.Corpus(tokenizer = None,
+                               stopwords = lambda x: len(x) <= 2 or x in stopwords)
 
-test_corpus = copy.copy(bill_corpus)
+[corpus_train.add_doc(
+    words = spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords),
+    labels = crs_labels[billid],
+    billid = billid,
+    ) for text, billid in zip(bills_train['text'], bills_train['id'])
+    ]
+    
+# Find and concatenate ngrams
+ngram_train = corpus_train.extract_ngrams(min_cf = 20, min_df = 20, max_cand = 1000000)
+corpus_train.concat_ngrams(ngram_train)
 
 
-bill_train_list = [(spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords), 
-                    crs_labels[billid], 
-                    {'labels':  crs_labels[billid]})
-                   for text, billid in zip(bills_train['text'], bills_train['id'])
-                   ]
-
-bill_corpus.process(bill_train_list)
-bill_corpus.save("data/legislation/corpus_train.pickle")
+corpus_train.save("data/legislation/corpus_train.pickle")
 
 # Test corpus
-bill_test_list = [(spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords),
-                    crs_labels[billid], 
-                    {'labels':  crs_labels[billid]})
-                  for text, billid in zip(bills_test['text'], bills_test['id'])
-                  ]
+corpus_test = tp.utils.Corpus(tokenizer = None,
+                               stopwords = lambda x: len(x) <= 2 or x in stopwords)
 
-test_corpus.process(bill_test_list)
-test_corpus.save("data/legislation/corpus_test.pickle")
+[corpus_test.add_doc(
+    words = spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords),
+    labels = crs_labels[billid],
+    billid = billid,
+    ) for text, billid in zip(bills_test['text'], bills_test['id'])
+    ]
+
+# Concatenate ngrams from training set
+corpus_test.concat_ngrams(ngram_train)
+
+
+corpus_test.save("data/legislation/corpus_test.pickle")
