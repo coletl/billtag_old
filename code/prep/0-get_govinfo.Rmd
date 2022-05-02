@@ -173,12 +173,23 @@ bill_text[ , text := gsub("\n\t\t\t", "", tolower(text), fixed = TRUE)]
 bill_text <- data.table:::unique.data.table(bill_text)
 ```
 
+
+Still some duplicate bill IDs remaining. Keep whichever has the longer text.
+```{r}
+bill_text[ , nchar := nchar(text)]
+
+bills_final <- bill_text[order(nchar), .(text = last(text)), by = id]
+
+round(nrow(bills_final) / nrow(bill_text), 3) * 100
+```
+
+
 # Export
 ```{r}
-write_parquet(bill_text, "data/legislation/govinfo/bill_text.parquet")
+write_parquet(bills_final, "data/legislation/govinfo/bill_text.parquet")
 
 set.seed(575)
-bill_samp <- dplyr::sample_n(bill_text, 100)
+bill_samp <- dplyr::sample_n(bills_final, 100)
 write_parquet(bill_samp, "data/legislation/govinfo/bill_text_samp.parquet")
 ```
 
