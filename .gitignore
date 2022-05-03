@@ -2,5 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+.vscode
 data
+models
 **/.DS_Store
+**/__pycache__
+
