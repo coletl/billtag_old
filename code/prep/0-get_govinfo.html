@@ -2611,6 +2611,7 @@ if (window.hljs) {
 
 
 
+
 <style type="text/css">
 .main-container {
   max-width: 940px;
@@ -2631,6 +2632,9 @@ button.code-folding-btn:focus {
 }
 summary {
   display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
 }
 pre code {
   padding: 0;
@@ -2793,7 +2797,7 @@ div.tocify {
 </div>
 
 
-<p>Updated: Mar 11, 2022 at 14:16:53 PST.</p>
+<p>Updated: May 02, 2022 at 18:09:27 PDT.</p>
 <p>Working directory: <code>/home/groups/jgrimmer/billtag</code>.</p>
 <p>Reads:</p>
 <ul>
@@ -2905,10 +2909,42 @@ bill_ids &lt;-
     gsub(&quot;(\\d+)([a-z]+)(\\d+)&quot;, &quot;\\2\\3-\\1&quot;, bill_tags)
 
 bill_text &lt;- 
-    data.table(bill_id = bill_ids,
-               bill_text = vapply(lxml, get_text_govinfo, 
-                                  FUN.VALUE = character(1)))</code></pre>
-<pre class="r"><code>write_parquet(bill_text, &quot;data/legislation/govinfo/bill_text.parquet&quot;)</code></pre>
+    data.table(id = bill_ids,
+               text = vapply(lxml, get_text_govinfo, 
+                                  FUN.VALUE = character(1)))
+
+bill_text[ , text := gsub(&quot;\n\t\t\t&quot;, &quot;&quot;, tolower(text), fixed = TRUE)]
+bill_text &lt;- data.table:::unique.data.table(bill_text)</code></pre>
+<p>Still some duplicate bill IDs remaining. Keep whichever has the longer text.</p>
+<pre class="r"><code>bill_text[ , nchar := nchar(text)]
+
+bills_final &lt;- bill_text[order(nchar), .(text = last(text)), by = id]
+
+stopifnot(anyDuplicated(bills_final$id) == 0)
+
+round(nrow(bills_final) / nrow(bill_text), 3) * 100</code></pre>
+<pre><code>## [1] 90.1</code></pre>
+</div>
+<div id="export" class="section level1">
+<h1>Export</h1>
+<pre class="r"><code>write_parquet(bills_final, &quot;data/legislation/govinfo/bill_text.parquet&quot;)
+
+set.seed(575)
+bill_samp &lt;- dplyr::sample_n(bills_final, 100)
+write_parquet(bill_samp, &quot;data/legislation/govinfo/bill_text_samp.parquet&quot;)</code></pre>
+<div id="split-into-training-and-testing" class="section level2">
+<h2>Split into training and testing</h2>
+<pre class="r"><code>N &lt;- nrow(bills_final)
+set.seed(575)
+
+index_train &lt;- sample(1:N, N/2)
+
+write_parquet(bills_final[index_train, ],
+              &quot;data/legislation/govinfo/bills_train.parquet&quot;)
+
+write_parquet(bills_final[-index_train, ],
+              &quot;data/legislation/govinfo/bills_test.parquet&quot;)</code></pre>
+</div>
 </div>
 
 

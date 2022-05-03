@@ -2,12 +2,16 @@
 Fit PLDA model
 """
 
+import json
 import tomotopy as tp
 
 iters = int(1e4)
 
-corpus_train = load("data/legislation/corpus_train.pickle")
-corpus_test = load("data/legislation/corpus_test.pickle")
+corpus_train = tp.utils.Corpus()
+corpus_train.load("data/legislation/corpus_train.pickle")
+
+corpus_test = tp.utils.Corpus()
+corpus_test.load("data/legislation/corpus_test.pickle")
 
 plda_crs = tp.PLDAModel(tw = tp.TermWeight.IDF, corpus = corpus_train,
                         min_cf = 0, min_df = 100,
@@ -19,8 +23,19 @@ plda_crs = tp.PLDAModel(tw = tp.TermWeight.IDF, corpus = corpus_train,
 plda_crs.train(iter = iters)
 
 plda_crs.save("models/plda_crs.pickle")
+# plda_crs = tp.PLDAModel.load("models/plda_crs.pickle")
+
+"""
+Apply model to test corpus
+"""
+
+corpus_test_list = json.load(open('data/legislation/corpus_test_list.json'))
+
+test_docs = [for doc in corpus_test_list plda_crs.make_doc(doc)]
+test_inference = plda_crs.infer(test_docs)
 
 plda_crs.summary()
 plda_crs.topic_label_dict
 plda_crs.get_topic_words(topic_id=0)
+plda_crs.get_topic_words(topic_id=12)
 

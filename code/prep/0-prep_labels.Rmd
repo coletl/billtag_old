@@ -430,20 +430,25 @@ table(cbp_topics$topic_major, useNA = "always") %>%
   sort()
 ```
 
+
 ```{r}
+# target: sres801-116
 cbp_topics[ , 
-            bill_id_pp := 
-              gsub(",3})-([A-Z]*)-(\\d*)", 
+            bill_id_govinfo := 
+              gsub("(\\d{,3})-([[:alpha:]]*)-(\\d+)", 
                    "\\2\\3-\\1",
                    bill_id) %>% tolower()
             ]
+
+stopifnot(length(intersect(cbp_topics$bill_id_govinfo, names(crs_topic_list))) > 1000)
 
 # check
 # cbp_topics[sample(.N, 20), .(bill_id, bill_id_pp)]
 # sample(bills %>% names(), 20)
 
 cbp_topic_list <- as.list(cbp_topics$topic_major)
-names(cbp_topic_list) <- cbp_topics$bill_id_pp
+names(cbp_topic_list) <- cbp_topics$bill_id_govinfo
+head(cbp_topic_list)
 ```
 
 <!-- ## Build bill-topic data frame -->
