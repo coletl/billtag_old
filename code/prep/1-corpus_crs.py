@@ -1,9 +1,9 @@
 """
 Construct training- and test-set corpuses with CRS labels
 """
-
-dev = False
-
+"""
+Prepare corpus of legislation with CRS labels
+"""
 import faulthandler
 faulthandler.enable()
 
@@ -56,42 +56,16 @@ def spacy_lemmatize_doc(doc, nlp, stopwords):
 
 random.seed(575)
 
-"""
-Split data into training, test sets
-"""
 
 crs_labels = json.load(open('data/topic_labels/crs_labels.json'))
 
+bill_fn = 'data/legislation/govinfo/bills_train.parquet' 
 
-if dev: bill_fn = 'data/legislation/govinfo/bill_text_samp.parquet' 
-else:   bill_fn = 'data/legislation/govinfo/bill_text.parquet'
-
-bills   = pyarrow.Table.to_pandas(pq.read_pandas(bill_fn))
-
-n_train   = round(len(bills) / 2)
-# index of 50/50 split
-split_index = set(random.sample(range(1, len(bills)), n_train))
-# index of unlabeled bills
-unlabel_index = np.where([billid not in crs_labels.keys()
-                          for billid in bills['id']])[0].tolist()
-
-# remove unlabeled bills from training set
-train_index = list(set(split_index) - set(unlabel_index))
-bills_train = bills.iloc[train_index]
-bills_test = bills.drop(train_index)
-
-len(bills_train); len(bills_test)
-
-assert(len(bills_train) + len(bills_test) == len(bills))
-
-len(split_index) - len(train_index)
-
+bills_train = pyarrow.Table.to_pandas(pq.read_pandas(bill_fn))
 
 """
 Build corpuses
 """
-
-assert len(set(bills_train["id"]).intersection(bills_test["id"])) == 0
 
 stopwords = set(nltk.corpus.stopwords.words('english')).union(
             set(["the", "section", "page"])
@@ -104,9 +78,6 @@ spacy_lemmatize_doc(bills_train['text'].to_list()[12],
 spacy_lemmatize_doc(bills_train['text'].to_list()[682],
                     nlp = spacy_en_sm, stopwords = stopwords)
                     
-# Construct n-grams
-
-
 
 # Training corpus
 corpus_train = tp.utils.Corpus(tokenizer = None,
@@ -127,18 +98,7 @@ corpus_train.concat_ngrams(ngram_train)
 corpus_train.save("data/legislation/corpus_train.pickle")
 
 # Test corpus
-corpus_test = tp.utils.Corpus(tokenizer = None,
-                               stopwords = lambda x: len(x) <= 2 or x in stopwords)
-
-[corpus_test.add_doc(
-    words = spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords),
-    labels = crs_labels[billid],
-    billid = billid,
-    ) for text, billid in zip(bills_test['text'], bills_test['id'])
-    ]
-
-# Concatenate ngrams from training set
-corpus_test.concat_ngrams(ngram_train)
-
-
-corpus_test.save("data/legislation/corpus_test.pickle")
+corpus_test_list = [spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords)
+                    for text in bills_test['text']]
+with open("data/legislation/corpus_test_list.json", "w") as outfile:
+    json.dump(corpus_test_list, f, ensure_ascii = False, indent = 4)
