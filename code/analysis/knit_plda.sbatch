@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=plda_crs
+#SBATCH --job-name=plda
 #SBATCH --time=12:00:00
 #SBATCH --mem-per-cpu=16G
 #SBATCH --cpus-per-task=5
@@ -13,7 +13,9 @@ cd /home/groups/jgrimmer/billtag
 
 # load modules
 
-ml R/4.1.2 system pandoc gsl 
-ml python3.9
+ml python/3.9.0
+source renv/python/virtualenvs/renv-python-3.9.0/bin/activate
 
-Rscript -e "rmarkdown::render('code/analysis/plda_crs.Rmd')"
+python code/analysis/plda_crs.py
+python code/analysis/plda_cbp.py
+
