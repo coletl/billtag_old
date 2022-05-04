@@ -10,6 +10,7 @@ output:
     toc_depth: 3
     toc_float: yes
     theme: paper
+    highlight: tango
 editor_options:
   chunk_output_type: console
 params: 

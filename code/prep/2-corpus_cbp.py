@@ -1,5 +1,5 @@
 """
-Prepare corpus of legislation with CRS labels
+Prepare corpus of legislation with CBP labels
 """
 
 import faulthandler
@@ -35,19 +35,22 @@ spacy_en_sm = spacy.load('en_core_web_sm', disable = ['parser', 'ner'])
 random.seed(575)
 
 
-crs_labels = json.load(open('data/topic_labels/crs_labels.json'))
+cbp_labels = json.load(open('data/topic_labels/cbp_labels.json'))
 
 bills_train = pyarrow.Table.to_pandas(
-    pq.read_pandas('data/legislation/govinfo/bills_train.parquet')
+    pq.read_pandas('data/legislation/splits/bills_train_cbp.parquet')
     )
 
 bills_test = pyarrow.Table.to_pandas(
-    pq.read_pandas('data/legislation/govinfo/bills_test.parquet')
+    pq.read_pandas('data/legislation/splits/bills_test_cbp.parquet')
     )
 
 """
 Build corpuses
 """
+
+assert len(set(bills_train['id']) - set(cbp_labels.keys())) == 0
+assert len(set(bills_train['id']).intersection(bills_test['id'])) == 0
 
 stopwords = set(nltk.corpus.stopwords.words('english')).union(
             set(["the", "section", "page"])
@@ -67,7 +70,7 @@ corpus_train = tp.utils.Corpus(tokenizer = None,
 
 [corpus_train.add_doc(
     words = spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords),
-    labels = crs_labels[billid],
+    labels = cbp_labels[billid],
     billid = billid,
     ) for text, billid in zip(bills_train['text'], bills_train['id'])
     ]
@@ -76,13 +79,17 @@ corpus_train = tp.utils.Corpus(tokenizer = None,
 ngram_train = corpus_train.extract_ngrams(min_cf = 20, min_df = 20, max_cand = 1000000)
 corpus_train.concat_ngrams(ngram_train)
 
+corpus_train.save("data/legislation/corpus_train_cbp.pickle")
 
-corpus_train.save("data/legislation/corpus_train.pickle")
+# Repeat for test corpus, but don't pass labels to keep things clean
+corpus_test = tp.utils.Corpus(tokenizer = None,
+                              stopwords = lambda x: len(x) <= 2 or x in stopwords)
 
-# Store test corpus as a list of lists 
-# since PLDAModel.make_doc() does not accept a corpus
-corpus_test_list = [spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords)
-                    for text in bills_test['text']]
-with open("data/legislation/corpus_test_list.json", "w") as outfile:
-    json.dump(corpus_test_list, f, ensure_ascii = False, indent = 4)
+[corpus_test.add_doc(
+    words = spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords),
+    billid = billid,
+    ) for text, billid in zip(bills_test['text'], bills_test['id'])
+    ]
+    
 
+corpus_test.save("data/legislation/corpus_test_cbp.pickle")

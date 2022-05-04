@@ -1,0 +1,348 @@
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: gsl/2.3 (required by: R/4.1.2)
+-------------------------------------------------------------------------------
+
+
+processing file: 0-get_govinfo.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |..                                                                    |   3%
+  ordinary text without R code
+
+  |                                                                              |.....                                                                 |   7%
+label: setup (with options) 
+List of 1
+ $ include: logi FALSE
+
+  |                                                                              |.......                                                               |  10%
+  ordinary text without R code
+
+  |                                                                              |..........                                                            |  14%
+label: about (with options) 
+List of 2
+ $ echo   : logi FALSE
+ $ results: chr "asis"
+
+  |                                                                              |............                                                          |  17%
+  ordinary text without R code
+
+  |                                                                              |..............                                                        |  21%
+label: packages (with options) 
+List of 2
+ $ warning: logi FALSE
+ $ message: logi FALSE
+
+See arrow_info() for available features
+
+Attaching package: 'arrow'
+
+The following object is masked from 'package:utils':
+
+    timestamp
+
+qs v0.25.3.
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:data.table':
+
+    between, first, last
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+
+Attaching package: 'purrr'
+
+The following object is masked from 'package:data.table':
+
+    transpose
+
+
+Attaching package: 'docstring'
+
+The following object is masked from 'package:utils':
+
+    ?
+
+  |                                                                              |.................                                                     |  24%
+  ordinary text without R code
+
+  |                                                                              |...................                                                   |  28%
+label: unnamed-chunk-1
+  |                                                                              |......................                                                |  31%
+  ordinary text without R code
+
+  |                                                                              |........................                                              |  34%
+label: unnamed-chunk-2
+  |                                                                              |...........................                                           |  38%
+  ordinary text without R code
+
+  |                                                                              |.............................                                         |  41%
+label: download (with options) 
+List of 1
+ $ eval: logi FALSE
+
+  |                                                                              |...............................                                       |  45%
+  ordinary text without R code
+
+  |                                                                              |..................................                                    |  48%
+label: unzip (with options) 
+List of 1
+ $ eval: logi FALSE
+
+  |                                                                              |....................................                                  |  52%
+  ordinary text without R code
+
+  |                                                                              |.......................................                               |  55%
+label: unnamed-chunk-3 (with options) 
+List of 1
+ $ eval: logi FALSE
+
+  |                                                                              |.........................................                             |  59%
+  ordinary text without R code
+
+  |                                                                              |...........................................                           |  62%
+label: read_xml_list (with options) 
+List of 1
+ $ eval: logi TRUE
+
+  |                                                                              |..............................................                        |  66%
+  ordinary text without R code
+
+  |                                                                              |................................................                      |  69%
+label: unnamed-chunk-4
+  |                                                                              |...................................................                   |  72%
+  ordinary text without R code
+
+  |                                                                              |.....................................................                 |  76%
+label: get_text_xml
+  |                                                                              |........................................................              |  79%
+  ordinary text without R code
+
+  |                                                                              |..........................................................            |  83%
+label: unnamed-chunk-5
+  |                                                                              |............................................................          |  86%
+  ordinary text without R code
+
+  |                                                                              |...............................................................       |  90%
+label: unnamed-chunk-6
+  |                                                                              |.................................................................     |  93%
+  ordinary text without R code
+
+  |                                                                              |....................................................................  |  97%
+label: unnamed-chunk-7
+  |                                                                              |......................................................................| 100%
+  ordinary text without R code
+
+
+output file: 0-get_govinfo.knit.md
+
+/share/software/user/open/pandoc/2.7.3/bin/pandoc +RTS -K512m -RTS 0-get_govinfo.knit.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output 0-get_govinfo.html --lua-filter /home/users/coletl/.local/share/renv/cache/v5/R-4.1/x86_64-pc-linux-gnu/rmarkdown/2.13/ac78f4d2e0289d4cba73b88af567b8b1/rmarkdown/rmarkdown/lua/pagebreak.lua --lua-filter /home/users/coletl/.local/share/renv/cache/v5/R-4.1/x86_64-pc-linux-gnu/rmarkdown/2.13/ac78f4d2e0289d4cba73b88af567b8b1/rmarkdown/rmarkdown/lua/latex-div.lua --self-contained --variable bs3=TRUE --standalone --section-divs --table-of-contents --toc-depth 3 --variable toc_float=1 --variable toc_selectors=h1,h2,h3 --variable toc_collapsed=1 --variable toc_smooth_scroll=1 --variable toc_print=1 --template /home/users/coletl/.local/share/renv/cache/v5/R-4.1/x86_64-pc-linux-gnu/rmarkdown/2.13/ac78f4d2e0289d4cba73b88af567b8b1/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable theme=paper --mathjax --variable 'mathjax-url=https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' --include-in-header /tmp/RtmpR4awTt/rmarkdown-str2b06c10fa5459.html 
+
+Output created: 0-get_govinfo.html
+
+
+processing file: 0-prep_labels.Rmd
+  |                                                                              |                                                                      |   0%  |                                                                              |..                                                                    |   3%
+  ordinary text without R code
+
+  |                                                                              |....                                                                  |   6%
+label: setup (with options) 
+List of 1
+ $ include: logi FALSE
+
+  |                                                                              |......                                                                |   9%
+  ordinary text without R code
+
+  |                                                                              |........                                                              |  11%
+label: about (with options) 
+List of 2
+ $ echo   : logi FALSE
+ $ results: chr "asis"
+
+  |                                                                              |..........                                                            |  14%
+  ordinary text without R code
+
+  |                                                                              |............                                                          |  17%
+label: packages (with options) 
+List of 2
+ $ warning: logi FALSE
+ $ message: logi FALSE
+
+qs v0.25.3.
+See arrow_info() for available features
+
+Attaching package: 'arrow'
+
+The following object is masked from 'package:utils':
+
+    timestamp
+
+Registered S3 method overwritten by 'jsonify':
+  method     from    
+  print.json jsonlite
+
+Attaching package: 'purrr'
+
+The following object is masked from 'package:jsonlite':
+
+    flatten
+
+The following object is masked from 'package:data.table':
+
+    transpose
+
+Loading required package: future
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:data.table':
+
+    between, first, last
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+
+Attaching package: 'tidylog'
+
+The following objects are masked from 'package:tidyr':
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    spread, uncount
+
+The following objects are masked from 'package:dplyr':
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following object is masked from 'package:stats':
+
+    filter
+
+
+Attaching package: 'docstring'
+
+The following object is masked from 'package:utils':
+
+    ?
+
+  |                                                                              |..............                                                        |  20%
+  ordinary text without R code
+
+  |                                                                              |................                                                      |  23%
+label: unnamed-chunk-1
+  |                                                                              |..................                                                    |  26%
+  ordinary text without R code
+
+  |                                                                              |....................                                                  |  29%
+label: unzip (with options) 
+List of 1
+ $ eval: logi FALSE
+
+  |                                                                              |......................                                                |  31%
+  ordinary text without R code
+
+  |                                                                              |........................                                              |  34%
+label: qsave_jsons (with options) 
+List of 1
+ $ eval: logi FALSE
+
+  |                                                                              |..........................                                            |  37%
+  ordinary text without R code
+
+  |                                                                              |............................                                          |  40%
+label: json_to_bill (with options) 
+List of 1
+ $ eval: logi FALSE
+
+  |                                                                              |..............................                                        |  43%
+  ordinary text without R code
+
+  |                                                                              |................................                                      |  46%
+label: unnamed-chunk-2
+  |                                                                              |..................................                                    |  49%
+  ordinary text without R code
+
+  |                                                                              |....................................                                  |  51%
+label: unnamed-chunk-3
+  |                                                                              |......................................                                |  54%
+  ordinary text without R code
+
+  |                                                                              |........................................                              |  57%
+label: unnamed-chunk-4
+  |                                                                              |..........................................                            |  60%
+  ordinary text without R code
+
+  |                                                                              |............................................                          |  63%
+label: unnamed-chunk-5
+  |                                                                              |..............................................                        |  66%
+  ordinary text without R code
+
+  |                                                                              |................................................                      |  69%
+label: subjects_to_topics
+  |                                                                              |..................................................                    |  71%
+  ordinary text without R code
+
+  |                                                                              |....................................................                  |  74%
+label: crs_report
+  |                                                                              |......................................................                |  77%
+  ordinary text without R code
+
+  |                                                                              |........................................................              |  80%
+label: unnamed-chunk-6
+  |                                                                              |..........................................................            |  83%
+  ordinary text without R code
+
+  |                                                                              |............................................................          |  86%
+label: unnamed-chunk-7
+  |                                                                              |..............................................................        |  89%
+  ordinary text without R code
+
+  |                                                                              |................................................................      |  91%
+label: unnamed-chunk-8
+  |                                                                              |..................................................................    |  94%
+  ordinary text without R code
+
+  |                                                                              |....................................................................  |  97%
+label: unnamed-chunk-9
+  |                                                                              |......................................................................| 100%
+  ordinary text without R code
+
+
+output file: 0-prep_labels.knit.md
+
+/share/software/user/open/pandoc/2.7.3/bin/pandoc +RTS -K512m -RTS 0-prep_labels.knit.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output 0-prep_labels.html --lua-filter /home/users/coletl/.local/share/renv/cache/v5/R-4.1/x86_64-pc-linux-gnu/rmarkdown/2.13/ac78f4d2e0289d4cba73b88af567b8b1/rmarkdown/rmarkdown/lua/pagebreak.lua --lua-filter /home/users/coletl/.local/share/renv/cache/v5/R-4.1/x86_64-pc-linux-gnu/rmarkdown/2.13/ac78f4d2e0289d4cba73b88af567b8b1/rmarkdown/rmarkdown/lua/latex-div.lua --self-contained --variable bs3=TRUE --standalone --section-divs --table-of-contents --toc-depth 3 --variable toc_float=1 --variable toc_selectors=h1,h2,h3 --variable toc_collapsed=1 --variable toc_smooth_scroll=1 --variable toc_print=1 --template /home/users/coletl/.local/share/renv/cache/v5/R-4.1/x86_64-pc-linux-gnu/rmarkdown/2.13/ac78f4d2e0289d4cba73b88af567b8b1/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --variable theme=paper --mathjax --variable 'mathjax-url=https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' --include-in-header /tmp/RtmpDkbPYY/rmarkdown-str2b28c79a90ef6.html 
+
+Output created: 0-prep_labels.html
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: gsl/2.3 (required by: R/4.1.2)
+-------------------------------------------------------------------------------
+  File "/home/groups/jgrimmer/billtag/code/prep/1-corpus_crs.py", line 79
+    corpus_train.save("data/legislation/corpus_train.pickle")
+    ^
+SyntaxError: invalid syntax
+Traceback (most recent call last):
+  File "/home/groups/jgrimmer/billtag/code/analysis/plda_crs.py", line 10, in <module>
+    corpus_train = tp.utils.Corpus().load("data/legislation/corpus_train.pickle")
+  File "/home/groups/jgrimmer/billtag/renv/python/virtualenvs/renv-python-3.9.0/lib/python3.9/site-packages/tomotopy/utils.py", line 127, in load
+    with open(filename, 'rb') as f:
+FileNotFoundError: [Errno 2] No such file or directory: 'data/legislation/corpus_train.pickle'

@@ -1,0 +1,125 @@
+---
+title: "Prepare bill labels from CRS and CBP"
+author: 
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+    highlight: tango
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 7, fig.height = 5)
+proj_dir <- tryCatch(rprojroot::find_rstudio_root_file(),
+                     error = function(e) rprojroot::find_root(".gitignore"))
+
+knitr::opts_knit$set(root.dir = proj_dir)
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+    sprintf("Updated: %s.", 
+            format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+    sprintf("Working directory: `%s`.", getwd()),
+    sep = "\n\n"
+)
+```
+
+Reads:
+
+  - data/topic_labels/crs_labels.json
+  - data/topic_labels/cbp_labels.json
+
+Writes:
+
+ - data/legislation/splits/bills_train_crs.parquet
+ - data/legislation/splits/bills_test_crs.parquet
+ - data/legislation/splits/bills_train_cbp.parquet
+ - data/legislation/splits/bills_test_cbp.parquet
+ - data/legislation/splits/bills_unlabeled.parquet
+
+# Setup
+
+```{r packages, warning=FALSE, message=FALSE}
+rm(list = setdiff(ls(), "params"))
+
+library(arrow)
+library(dplyr)
+library(data.table)
+```
+
+Read data.
+```{r}
+bills <- 
+  read_parquet("data/legislation/govinfo/bill_text.parquet") %>% 
+  filter(text != "")
+```
+
+```{r}
+crs_topics <- jsonlite::read_json("data/topic_labels/crs_labels.json")
+cbp_topics <- jsonlite::read_json("data/topic_labels/cbp_labels.json")
+
+stopifnot(all(sapply(cbp_topics, length) == 1))
+
+# Drop NULL elements
+cbp_topics <- unlist(cbp_topics)
+crs_topics <- crs_topics[sapply(crs_topics, length) > 0]
+```
+
+Plenty of labeled bills not in the govinfo download. Must drop these before data.table join.
+```{r}
+cbp <- data.table(id = names(cbp_topics), label = cbp_topics) %>% 
+  filter(id %in% bills$id)
+
+crs <- data.table(id = names(crs_topics), label = crs_topics) %>% 
+  filter(id %in% bills$id)
+```
+
+
+We have about twice as many labelled bills from CBP compared to CRS. Create two test and train splits, one for each set of labels.
+
+```{r}
+# Subset to sets of labeled bills by data.table join
+setDT(bills, key = "id")
+
+bills_cbp <- bills[cbp$id]
+bills_crs <- bills[crs$id]
+
+bills_unlab <- bills[!c(cbp$id, crs$id)]
+```
+
+
+# Random 50/50 split
+```{r}
+set.seed(575)
+index_train_crs <- sample(1:nrow(bills_crs), nrow(bills_crs)/2)
+index_train_cbp <- sample(1:nrow(bills_cbp), nrow(bills_cbp)/2)
+```
+
+
+# Export
+Export without topic labels since CRS has multiple labels per bill, and parquet doesn't handle list-type columns.
+```{r}
+write_parquet(bills_crs[index_train_crs, ],
+              "data/legislation/splits/bills_train_crs.parquet")
+write_parquet(bills_crs[-index_train_crs, ],
+              "data/legislation/splits/bills_test_crs.parquet")
+
+
+write_parquet(bills_cbp[index_train_cbp, ],
+              "data/legislation/splits/bills_train_cbp.parquet")
+write_parquet(bills_cbp[-index_train_cbp, ],
+              "data/legislation/splits/bills_test_cbp.parquet")
+
+
+write_parquet(bills_unlab, "data/legislation/splits/bills_unlabeled.parquet")
+```
+
+

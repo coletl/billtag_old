@@ -10,6 +10,7 @@ output:
     toc_depth: 3
     toc_float: yes
     theme: paper
+    highlight: tango
 editor_options:
   chunk_output_type: inline
 params: 
@@ -194,19 +195,3 @@ set.seed(575)
 bill_samp <- dplyr::sample_n(bills_final, 100)
 write_parquet(bill_samp, "data/legislation/govinfo/bill_text_samp.parquet")
 ```
-
-## Split into training and testing
-```{r}
-N <- nrow(bills_final)
-set.seed(575)
-
-index_train <- sample(1:N, N/2)
-
-write_parquet(bills_final[index_train, ],
-              "data/legislation/govinfo/bills_train.parquet")
-
-write_parquet(bills_final[-index_train, ],
-              "data/legislation/govinfo/bills_test.parquet")
-```
-
-
