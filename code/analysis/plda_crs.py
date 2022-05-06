@@ -28,7 +28,6 @@ plda_crs.save("models/plda_crs.pickle")
 Apply model to test corpus
 """
 
-
 plda_crs.summary()
 plda_crs.topic_label_dict
 plda_crs.get_topic_words(topic_id=0)
