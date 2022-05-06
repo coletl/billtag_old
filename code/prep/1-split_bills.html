@@ -2878,7 +2878,7 @@ div.tocify {
 </div>
 
 
-<p>Updated: May 03, 2022 at 10:04:07 PDT.</p>
+<p>Updated: May 05, 2022 at 09:53:15 PDT.</p>
 <p>Working directory: <code>/home/groups/jgrimmer/billtag</code>.</p>
 <p>Reads:</p>
 <ul>
@@ -2922,10 +2922,11 @@ div.tocify {
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1"></a><span class="co"># Subset to sets of labeled bills by data.table join</span></span>
 <span id="cb5-2"><a href="#cb5-2"></a><span class="kw">setDT</span>(bills, <span class="dt">key =</span> <span class="st">&quot;id&quot;</span>)</span>
 <span id="cb5-3"><a href="#cb5-3"></a></span>
-<span id="cb5-4"><a href="#cb5-4"></a>bills_cbp &lt;-<span class="st"> </span>bills[cbp<span class="op">$</span>id]</span>
-<span id="cb5-5"><a href="#cb5-5"></a>bills_crs &lt;-<span class="st"> </span>bills[crs<span class="op">$</span>id]</span>
-<span id="cb5-6"><a href="#cb5-6"></a></span>
-<span id="cb5-7"><a href="#cb5-7"></a>bills_unlab &lt;-<span class="st"> </span>bills[<span class="op">!</span><span class="kw">c</span>(cbp<span class="op">$</span>id, crs<span class="op">$</span>id)]</span></code></pre></div>
+<span id="cb5-4"><a href="#cb5-4"></a><span class="co"># Inner join drops bills not in y</span></span>
+<span id="cb5-5"><a href="#cb5-5"></a>bills_cbp &lt;-<span class="st"> </span><span class="kw">merge</span>(bills, cbp, <span class="dt">by =</span> <span class="st">&quot;id&quot;</span>, <span class="dt">all =</span> <span class="ot">FALSE</span>)</span>
+<span id="cb5-6"><a href="#cb5-6"></a>bills_crs &lt;-<span class="st"> </span><span class="kw">merge</span>(bills, crs, <span class="dt">by =</span> <span class="st">&quot;id&quot;</span>, <span class="dt">all =</span> <span class="ot">FALSE</span>)</span>
+<span id="cb5-7"><a href="#cb5-7"></a></span>
+<span id="cb5-8"><a href="#cb5-8"></a>bills_unlab &lt;-<span class="st"> </span>bills[<span class="op">!</span><span class="kw">c</span>(cbp<span class="op">$</span>id, crs<span class="op">$</span>id)]</span></code></pre></div>
 </div>
 <div id="random-5050-split" class="section level1">
 <h1>Random 50/50 split</h1>

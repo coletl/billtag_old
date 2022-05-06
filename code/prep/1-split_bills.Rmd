@@ -89,8 +89,9 @@ We have about twice as many labelled bills from CBP compared to CRS. Create two 
 # Subset to sets of labeled bills by data.table join
 setDT(bills, key = "id")
 
-bills_cbp <- bills[cbp$id]
-bills_crs <- bills[crs$id]
+# Inner join drops bills not in y
+bills_cbp <- merge(bills, cbp, by = "id", all = FALSE)
+bills_crs <- merge(bills, crs, by = "id", all = FALSE)
 
 bills_unlab <- bills[!c(cbp$id, crs$id)]
 ```

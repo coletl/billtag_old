@@ -70,7 +70,10 @@ corpus_train = tp.utils.Corpus(tokenizer = None,
 
 [corpus_train.add_doc(
     words = spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords),
+    # PLDA response
     labels = cbp_labels[billid],
+    # SLDA response
+    y = np.array(cbp_labels[billid]).item(),
     billid = billid,
     ) for text, billid in zip(bills_train['text'], bills_train['id'])
     ]
@@ -88,6 +91,9 @@ corpus_test = tp.utils.Corpus(tokenizer = None,
 [corpus_test.add_doc(
     words = spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords),
     billid = billid,
+    # Hide label in some keyword argument other than `labels`, so
+    # it'll be accessible but impossible for tp models to find
+    hidden_labels = cbp_labels[billid],
     ) for text, billid in zip(bills_test['text'], bills_test['id'])
     ]
     

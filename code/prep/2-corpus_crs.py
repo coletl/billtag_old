@@ -87,6 +87,9 @@ corpus_test = tp.utils.Corpus(tokenizer = None,
 
 [corpus_test.add_doc(
     words = spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords),
+    # Hide label in some keyword argument other than `labels`, so
+    # it'll be accessible but impossible for tp models to find
+    hidden_labels = cbp_labels[billid],
     billid = billid,
     ) for text, billid in zip(bills_test['text'], bills_test['id'])
     ]
