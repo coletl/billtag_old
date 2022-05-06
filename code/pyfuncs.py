@@ -73,17 +73,6 @@ def infer_labels(tp_lda_model, corpus_test, idnm: str):
     # Store column names for reordering
     cols = labels_infer_df.columns.values.tolist()
     
-    # Rename if cols is just numbers
-    if all([isinstance(colnm, int) for colnm in cols]):
-        lbl_nms_nest = [doc.hidden_labels for doc in corpus_test]
-        # Flatten list
-        lbl_nms = [item for sublist in lbl_nms_nest for item in sublist]
-        # Remove duplicates
-        lbl_uniq = list(dict.fromkeys(lbl_nms))
-        # Update column names
-        labels_infer_df.columns = lbl_uniq
-        cols = labels_infer_df.columns.values.tolist()
-    
     # Best guess, assuming no ties
     label_max = labels_infer_df.idxmax(1)
     labels_infer_df['topic_inferred'] = label_max
