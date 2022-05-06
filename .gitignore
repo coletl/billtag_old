@@ -6,6 +6,7 @@
 data
 models
 **/.DS_Store
-**/__pycache__
 **/*.log
+**/__pycache__/
+**/*.py[cod]
 **/*.sbatch
