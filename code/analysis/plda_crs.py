@@ -101,4 +101,20 @@ wandb.log(
 
 wandb.log({"cbp.summary": plda_cbp.summary()})
 
+plda_cbp.summary()
+
+# Top 10 words of each topic
+labels = list(plda_cbp.topic_label_dict)
+labels.append("Latent")
+
+top_words_dict = dict()
+for i in range(len(labels)): 
+    top_words_dict[labels[i]] = pd.DataFrame(plda_cbp.get_topic_words(i),
+                                             columns = ["word", "prob"]) 
+
+# top_words = pd.concat(top_words_dict)
+
+wandb.log(top_words_dict)
+
+
 wandb.finish()

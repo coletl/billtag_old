@@ -62,6 +62,28 @@ plda_cbp.train(iter = wandb.config.iters)
 
 plda_cbp.save("models/plda_cbp.pickle")
 
+
+"""
+Construct test corpus
+"""
+
+# Repeat for test corpus, but don't pass labels to keep things clean
+corpus_test = tp.utils.Corpus(tokenizer = None,
+                              stopwords = lambda x: len(x) <= 2 or x in stopwords)
+
+test_eta = plda_cbp.get_count_by_topics()/len(corpus_train)
+
+[corpus_test.add_doc(
+    words = spacy_lemmatize_doc(text, nlp = spacy_en_sm, stopwords = stopwords),
+    billid = billid,
+    # Hide label in some keyword argument other than `labels`, so
+    # it'll be accessible but impossible for tp models to find
+    hidden_labels = cbp_labels[billid],
+    eta = test_eta,
+    ) for text, billid in zip(bills_test_cbp['text'], bills_test_cbp['id'])
+    ]
+
+
 """
 Infer test-set topics from PLDA
 """
@@ -70,12 +92,10 @@ Infer test-set topics from PLDA
 # plda_cbp.summary()    
 
 # Inspect culture, which ends up as a catch-all for some reason
-plda_cbp.get_topic_word_dist(20)
-
+wandb.config.eta = test_eta
 
 # Infer topics, store likelihoods separately
 topic_df_plda, ll_plda = infer_labels(plda_cbp, corpus_test_cbp, idnm = "billid")
-
 
 # Join with real labels
 topic_df_plda = pd.merge(bills_test_cbp, topic_df_plda, how = "left", 
@@ -105,5 +125,20 @@ wandb.log(
     )
 
 wandb.log({"cbp.summary": plda_cbp.summary()})
+
+
+# Top 10 words of each topic
+labels = list(plda_cbp.topic_label_dict)
+labels.append("Latent")
+
+top_words_dict = dict()
+for i in range(len(labels)): 
+    top_words_dict[labels[i]] = pd.DataFrame(plda_cbp.get_topic_words(i),
+                                             columns = ["word", "prob"]) 
+
+# top_words = pd.concat(top_words_dict)
+
+wandb.log(top_words_dict)
+
 
 wandb.finish()
